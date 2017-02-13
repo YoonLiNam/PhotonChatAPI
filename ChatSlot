@@ -1,0 +1,15 @@
+using UnityEngine;
+using System.Collections;
+using UnityEngine.UI;
+
+public class ChatSlot : MonoBehaviour {
+
+    
+    public Text chatNameText;
+
+    // 친구 대화 입장버튼 눌렀을 때
+    public void OnclickFriendChat()
+    {
+        UIManager.Instance.friendChatShow(chatNameText.text);
+    }
+}
