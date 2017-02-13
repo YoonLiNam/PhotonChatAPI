@@ -4,9 +4,13 @@ Provides a guide for easy use of ‘ PhotonChatAPI ’.
 
 PhotonChat_Demo DownLoad : [DownLoad](https://drive.google.com/file/d/0BzGm_WSvgeywanFTaU01cWJwU0k/view?usp=sharing)
 
+PhotonChat_Demo는 photon chat 가입후에 받은 
+appid를 ChatSettingsFile에 기입하고 사용하시면 됩니다.
 
 
-Photon Chat 기본적인 기능은 이렇게 됩니다.
+
+
+# Photon Chat 기본적인 기능은 이렇게 됩니다.
 
 
 ## PhotonChat 서버와 연결합니다.
