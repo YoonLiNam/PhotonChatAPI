@@ -1,0 +1,201 @@
+using UnityEngine;
+using System.Collections;
+using UnityEngine.UI;
+using System;
+
+public class UIManager : MonoBehaviour {
+
+    static UIManager instance;
+    public static UIManager Instance
+    {
+        get { return instance; }
+    }
+    private void Awake()
+    {
+        instance = this;
+    }
+
+    [SerializeField]
+    GameObject popUpPanel;
+    [SerializeField]
+    Text popUpText;
+    [SerializeField]
+    InputField PopUpInputFieldText;
+    [SerializeField]
+    GameObject exitButton;
+    [SerializeField]
+    GameObject friendList;
+    [SerializeField]
+    GameObject content;
+    [SerializeField]
+    GameObject chatSlotPrefab;
+    [SerializeField]
+    GameObject chatInputField;
+    [SerializeField]
+    GameObject loginPanel;
+    [SerializeField]
+    InputField userIdInputField;
+    [SerializeField]
+    PhotonChatManager photonChatManager;
+
+    [SerializeField]
+    InputField friendInputField;
+   
+    string guildName;
+
+    private void Start()
+    {
+        Screen.SetResolution(405, 720, false);
+        photonChatManager.enabled = false;
+        loginPanel.SetActive(true);
+        friendList.SetActive(false);
+    }
+    // 접속 버튼 클릭했을 때
+    public void OnClickLogin()
+    {
+        photonChatManager.UserName = userIdInputField.text;
+        userIdInputField.text = "";
+        loginPanel.SetActive(false);
+        photonChatManager.enabled = true;
+    }
+
+
+    public void PopUpShow(string popupMessage)
+    {
+        popUpPanel.SetActive(true);
+        popUpText.text = popupMessage;
+    }
+
+    public void PopUpClose()
+    {
+        popUpPanel.SetActive(false);
+    }
+
+    public void ExitButtonShow()
+    {
+        exitButton.SetActive(true);
+    }
+
+    public void ExitButtonClose()
+    {
+        exitButton.SetActive(false);
+    }
+
+
+    //길드 가입 버튼 눌렀을때
+    public void OnclickGuildJoin()
+    {
+        guildName = PopUpInputFieldText.text;
+        PopUpInputFieldText.text = "";
+        if (string.IsNullOrEmpty(guildName))
+        {
+            guildName = "Guild" + Environment.TickCount % 99;
+        }
+        photonChatManager.selectedChannelName = guildName;
+        photonChatManager.ChatSubscribe(guildName.Split(new char[] { ' ', ',' }));
+        OnClickGuildButton();
+
+
+    }
+
+    // 친구 채팅 슬롯 생성
+    public void InstantiateChatSlot(string chatName)
+    {
+        ChatSlot[] chatslots = content.transform.GetComponentsInChildren<ChatSlot>();
+        foreach (ChatSlot c in chatslots)
+        {
+            if(c.chatNameText.text == chatName)
+            {
+                return;
+            }
+        }
+
+        GameObject chatslot = Instantiate(chatSlotPrefab);
+        chatslot.GetComponent<ChatSlot>().chatNameText.text = chatName;
+        chatslot.transform.SetParent(content.transform, false);
+    }
+
+
+    // 객 채널 버튼을 눌렀을 때 사용되는 메소드
+    // 일반 버튼 클릭
+    public void OnClickNormalButton()
+    {
+        photonChatManager.ShowChannel("Normal");
+        friendList.SetActive(false);
+        chatInputField.SetActive(true);
+        ExitButtonClose();
+        PopUpClose();
+    }
+    // 친구 버튼 클릭
+    public void OnClickFriendButton()
+    {
+        friendList.SetActive(true);
+        chatInputField.SetActive(false);
+        ExitButtonClose();
+        PopUpClose();
+    }
+    // 길드 버튼 클릭
+    public void OnClickGuildButton()
+    {
+        if (!string.IsNullOrEmpty(guildName))
+        {
+            photonChatManager.ShowChannel(guildName);
+            ExitButtonShow();
+            PopUpClose();
+            chatInputField.SetActive(true);
+        }
+        else
+        {
+            PopUpShow("길드 이름을 입력하세요.");
+            ExitButtonClose();
+            chatInputField.SetActive(false);
+            photonChatManager.clearChannel();
+        }
+        friendList.SetActive(false);
+
+    }
+
+    // 나가기 버튼 눌렀을 때
+    public void OnClickExitButton()
+    {
+        if(photonChatManager.PrivateChatCheck())
+        {
+            // 1:1 채팅방 나가기
+            friendList.SetActive(true);
+            chatInputField.SetActive(false);
+        }
+        else
+        {
+            // 길드 채팅방 나가기        
+            photonChatManager.OnUnsubscribed(guildName.Split(new char[] { ' ', ',' }));
+            photonChatManager.clearChannel();
+            guildName = null;
+            OnClickGuildButton();
+        }
+        
+    }
+
+    // 친구 추가할 때
+    public void FriendChatAdd()
+    {
+        if(string.IsNullOrEmpty(friendInputField.text))
+        {
+            Debug.Log("친구추가할 아이디를 입력하세요");
+            return;
+        }
+        photonChatManager.PrivateChatAdd(friendInputField.text);
+        friendInputField.text = "";
+    }
+
+    // 친구 대화창 열 때
+    public void friendChatShow(string friendName)
+    {
+        friendList.SetActive(false);
+        photonChatManager.ShowChannel(friendName);
+        chatInputField.SetActive(true);
+        ExitButtonShow();
+    }
+    
+        
+
+}
