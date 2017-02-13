@@ -1,0 +1,292 @@
+using UnityEngine;
+using System;
+
+// Photon Chat을 위한 필요 네임스페이스
+using ExitGames.Client.Photon.Chat;
+using UnityEngine.UI;
+
+
+public class PhotonChatManager : MonoBehaviour, IChatClientListener
+{
+    private static PhotonChatManager instance;
+    public static PhotonChatManager Instance
+    {
+        get { return instance; }
+    }
+    private void Awake()
+    {
+        instance = this;
+    }
+
+    public string[] ChannelsToJoinOnConnect; // 채팅 채널 리스트
+    public int HistoryLengthToFetch;    // 경위에 설정합니다. 어느 정도까지 이전에 보낸 메시지는 컨텍스트에 대해 가져올 수 있습니다
+
+    public string UserName { get; set; }
+
+    public string selectedChannelName; // 현재 채팅 채널
+
+    public ChatClient chatClient;
+
+    private string guildChannelName;
+    private string friendChannelName;
+
+
+
+    public RectTransform ChatPanel;     // 채팅 패널
+    public InputField InputFieldChat;   // 채팅 메시지 입력부
+    public Text CurrentChannelText;     //채팅 메시지들이 들어갈 부분
+
+
+    public Button[] channelButtons;     //채팅 버튼들
+
+    public void Start()
+    {
+        Screen.SetResolution(405, 720, false);
+        DontDestroyOnLoad(gameObject);
+        ChatPanel.gameObject.SetActive(true);
+
+        Application.runInBackground = true; //앱을 완전히 종료하지 않고 바탕화면으로 같을 때 photon chat의 실행을 멈추지 않기위함
+
+        if (string.IsNullOrEmpty(UserName))
+        {
+            UserName = "user" + Environment.TickCount % 99;
+        }
+
+        chatClient = new ChatClient(this);
+        string chatAppId = ChatSettings.Instance.AppId;
+        // photon chat 연결 (appid, 버전(채팅하는사람들 모두 동일해야함),접속한 유저정보를 photon에 저장) 
+        chatClient.Connect(chatAppId, "1.0", new AuthenticationValues(UserName));
+
+    }
+
+    // 프로그램이 꺼지면 Photon Chat 연결해제
+    public void OnApplicationQuit()
+    {
+        if (chatClient != null)
+        {
+            chatClient.Disconnect();
+        }
+    }
+
+    public void Update()
+    {
+        if (chatClient != null)
+        {
+            chatClient.Service(); // 계속불러야 하는 부분
+        }
+        OnEnterSend();
+    }
+
+
+    // 입력 키 눌렀을 때
+    public void OnEnterSend()
+    {
+        if (Input.GetKey(KeyCode.Return) || Input.GetKey(KeyCode.KeypadEnter))
+        {
+            SendChatMessage(InputFieldChat.text);
+            InputFieldChat.text = "";
+        }
+    }
+
+    // 입력 버튼 눌렀을 때
+    public void OnClickSend()
+    {
+        if (InputFieldChat != null)
+        {
+            SendChatMessage(InputFieldChat.text);
+            InputFieldChat.text = "";
+        }
+    }
+
+    // 메시지 보내기
+    private void SendChatMessage(string inputLine)
+    {
+        if (string.IsNullOrEmpty(inputLine))
+        {
+            return;
+        }
+        bool doingPrivateChat = chatClient.PrivateChannels.ContainsKey(this.selectedChannelName); // 현재 채널이 비밀 채널에 존재하는가?
+        string privateChatTarget = string.Empty;
+        // 비밀채널이 존재한다면
+        if (doingPrivateChat)
+        {
+            string[] splitNames = this.selectedChannelName.Split(new char[] { ':' }); //비밀 채널의 이름은 (보내는 사람 : 받는사람)으로 구성되었있다
+            privateChatTarget = splitNames[1];
+        }
+        if (doingPrivateChat)
+        {
+            // 비밀채널 채팅은 무조건 SendPrivateMessage로 보내야 한다.
+            //비밀 채널 SendPrivateMessage(메시지 보낼 상대, 메시지) (1:1 채팅을 할 때 사용된다.)
+            chatClient.SendPrivateMessage(privateChatTarget, inputLine);
+        }
+        else
+        {
+            // 일반 채팅 PublishMessage(메시지 보낼 채널, 메시지)
+            chatClient.PublishMessage(selectedChannelName, inputLine);
+        }
+
+
+
+    }
+    // 비밀채널(1:1 대화) 를 만드는 부분
+    public void PrivateChatAdd(string targetUser)
+    {
+        string message = "1:1 대화를 시작합니다.";
+        //비밀 채널 SendPrivateMessage(메시지 보낼 상대, 메시지) (1:1 채팅을 할 때 사용된다.)
+        chatClient.SendPrivateMessage(targetUser, message);
+    }
+
+    // PhtonChat에서 발생되는 에러 메시지를 알려줍니다.(리스너 메소드입니다.)
+    public void DebugReturn(ExitGames.Client.Photon.DebugLevel level, string message)
+    {
+
+        if (level == ExitGames.Client.Photon.DebugLevel.ERROR)
+        {
+            UnityEngine.Debug.LogError(message);
+        }
+        else if (level == ExitGames.Client.Photon.DebugLevel.WARNING)
+        {
+            UnityEngine.Debug.LogWarning(message);
+        }
+        else
+        {
+            UnityEngine.Debug.Log(message);
+        }
+    }
+    public void ChatSubscribe(string[] chatName)
+    {
+        chatClient.Subscribe(chatName, HistoryLengthToFetch);
+    }
+
+    // 채팅 채널을 연결합니다.(리스너 메소드입니다.)
+    public void OnConnected()
+    {
+        if (ChannelsToJoinOnConnect != null && ChannelsToJoinOnConnect.Length > 0)
+        {
+            // 채널에 접속합니다. (접속하고자 하는 채널 리스트, 접속하자마자 이전 대화목록 얼마나 받을 것인가);
+            chatClient.Subscribe(ChannelsToJoinOnConnect, HistoryLengthToFetch);
+        }
+
+        chatClient.AddFriends(new string[] { "영희", "철수" }); // 포톤쳇 서버에 친구 추가를 할 수 있습니다. (임의의 친구 추가)
+        chatClient.SetOnlineStatus(ChatUserStatus.Online); // 온라인 상태를 설정할 수 있습니다(Online / Offline)        
+    }
+    // 채팅 채널을 해제합니다.(리스너 메소드입니다.)
+    public void OnDisconnected()
+    {
+        Debug.Log("채팅 채널 연결을 해제합니다");
+    }
+
+    // Photon chat의 현재 생태를 알려준다.(리스너 메소드입니다.)
+    public void OnChatStateChange(ChatState state)
+    {
+        if (state == ChatState.ConnectedToFrontEnd)
+        {
+            Debug.Log("Photon chat connected seccess!!!");
+        }
+        else
+        {
+            Debug.Log("Photon State : " + state.ToString());
+        }
+    }
+
+    // 채널에 접속했을 때 이벤트 함수(리스너 메소드입니다.)
+    public void OnSubscribed(string[] channels, bool[] results)
+    {
+        // 각 채널에 메시지를 보냅니다. 이것은 꼭 필요한 것은 아니다!
+        foreach (string channel in channels)
+        {
+            chatClient.PublishMessage(channel, channel + "채널에 입장하셨습니다."); // 각 채널에 접속한 메시지 띄움
+            // 접속시 첫번째 버튼 채널을 보여준다. 
+            if (string.IsNullOrEmpty(selectedChannelName))
+            {
+                ShowChannel(channelButtons[0].name);
+            }
+            else
+            {
+                ShowChannel(selectedChannelName);
+            }
+        }
+        Debug.Log("OnSubscribed: " + string.Join(", ", channels));
+
+
+
+    }
+
+
+    // 채널 접속 취소(리스너 메소드입니다.)
+    public void OnUnsubscribed(string[] channels)
+    {
+
+        ChatChannel channel;
+        if (this.chatClient.TryGetChannel(this.selectedChannelName, false, out channel))
+        {
+            channel.ClearMessages(); // 해당 채널의 메시지 초기화(싹다 지움)
+        }
+
+        Debug.Log("채널 접속 취소");
+    }
+
+    //클라이언트가 서버로부터 새로운 메시지를 받은 앱을 알립니다.(리스너 메소드입니다.)
+    public void OnGetMessages(string channelName, string[] senders, object[] messages)
+    {
+        // call back channelname == 현재 채널과 같다면
+        if (channelName.Equals(this.selectedChannelName))
+        {
+            // 텍스트 보여주기
+            ShowChannel(selectedChannelName);
+
+        }
+    }
+
+    // 개인적인 메시지 받음 (보낸사람, 메시지, 채널 이름) (리스너 메소드입니다.)
+    public void OnPrivateMessage(string sender, object message, string channelName)
+    {
+
+        UIManager.Instance.InstantiateChatSlot(channelName);
+
+        // 지금 채널이 해당 채널이라면
+        if (this.selectedChannelName.Equals(channelName))
+        {
+            // 보여주기
+            ShowChannel(channelName);
+        }
+    }
+
+    // 친구의 접속상태 업데이트 (리스너 메소드입니다.)
+    public void OnStatusUpdate(string user, int status, bool gotMessage, object message)
+    {
+        // 친구의 상태 업데이트를받는 방법입니다.
+        // 친구 관리와 친구들의 메시지는 좀더 복잡해져서 이번에는 제외합니다.
+        Debug.Log("유저 : " + user + "온오프라인 상태" + status + "메시지가 도착했는가? " + gotMessage.ToString() + "메시지 : " + message.ToString());
+    }
+
+    // 메시지 보여주는 메소드
+    public void ShowChannel(string channelName)
+    {
+        if (string.IsNullOrEmpty(channelName))
+        {
+            return;
+        }
+
+        ChatChannel channel = null;
+        bool found = this.chatClient.TryGetChannel(channelName, out channel); // 해당 채널에 쌓였던 메시지 불러옴
+        if (!found)
+        {
+            Debug.Log("ShowChannel failed to find channel: " + channelName);
+            return;
+        }
+
+        selectedChannelName = channelName;
+        CurrentChannelText.text = channel.ToStringMessages(); // 불러온 메시지 뿌려줌
+        Debug.Log("ShowChannel: " + selectedChannelName);
+    }
+    public void clearChannel()
+    {
+        CurrentChannelText.text = "";
+    }
+    public bool PrivateChatCheck()
+    {
+        bool doingPrivateChat = chatClient.PrivateChannels.ContainsKey(this.selectedChannelName);
+        return doingPrivateChat;
+    }
+}
