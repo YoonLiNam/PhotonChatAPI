@@ -17,49 +17,65 @@ public class UIManager : MonoBehaviour {
 
     [SerializeField]
     GameObject popUpPanel;
+
     [SerializeField]
     Text popUpText;
+
     [SerializeField]
     InputField PopUpInputFieldText;
+
     [SerializeField]
     GameObject exitButton;
+
     [SerializeField]
     GameObject friendList;
+
     [SerializeField]
     GameObject content;
+
     [SerializeField]
     GameObject chatSlotPrefab;
+
     [SerializeField]
     GameObject chatInputField;
+
     [SerializeField]
     GameObject loginPanel;
+
+    [SerializeField]
+    GameObject loadingPanel;
+
     [SerializeField]
     InputField userIdInputField;
-    [SerializeField]
-    PhotonChatManager photonChatManager;
 
     [SerializeField]
     InputField friendInputField;
    
     string guildName;
-
+    
     private void Start()
     {
         Screen.SetResolution(405, 720, false);
-        photonChatManager.enabled = false;
+        
         loginPanel.SetActive(true);
         friendList.SetActive(false);
     }
     // 접속 버튼 클릭했을 때
     public void OnClickLogin()
     {
-        photonChatManager.UserName = userIdInputField.text;
+        PhotonChatManager.Instance.UserName = userIdInputField.text;
         userIdInputField.text = "";
-        loginPanel.SetActive(false);
-        photonChatManager.enabled = true;
+        
+        StartCoroutine(Connect());
+        
+        
     }
-
-
+    IEnumerator Connect()
+    {
+        loadingPanel.SetActive(true);
+        yield return StartCoroutine(PhotonChatManager.Instance.PhotonChatConnect());
+        loginPanel.SetActive(false);
+    }
     public void PopUpShow(string popupMessage)
     {
         popUpPanel.SetActive(true);
@@ -91,8 +107,8 @@ public class UIManager : MonoBehaviour {
         {
             guildName = "Guild" + Environment.TickCount % 99;
         }
-        photonChatManager.selectedChannelName = guildName;
-        photonChatManager.ChatSubscribe(guildName.Split(new char[] { ' ', ',' }));
+        PhotonChatManager.Instance.selectedChannelName = guildName;
+        PhotonChatManager.Instance.ChatSubscribe(guildName.Split(new char[] { ' ', ',' }));
         OnClickGuildButton();
 
 
@@ -116,17 +132,18 @@ public class UIManager : MonoBehaviour {
     }
 
 
-    // 객 채널 버튼을 눌렀을 때 사용되는 메소드
-    // 일반 버튼 클릭
+    // 객 채널 버튼을 눌렀을 때 사용되는 메소드 ===============================================================
+    /// <summary> 일반 버튼 클릭 </summary>
     public void OnClickNormalButton()
     {
-        photonChatManager.ShowChannel("Normal");
+        PhotonChatManager.Instance.ShowChannel("Normal");
         friendList.SetActive(false);
         chatInputField.SetActive(true);
         ExitButtonClose();
         PopUpClose();
     }
-    // 친구 버튼 클릭
+    
+    /// <summary> 친구 버튼 클릭 </summary>
     public void OnClickFriendButton()
     {
         friendList.SetActive(true);
@@ -134,12 +151,12 @@ public class UIManager : MonoBehaviour {
         ExitButtonClose();
         PopUpClose();
     }
-    // 길드 버튼 클릭
+    /// <summary> 길드 버튼 클릭 </summary>
     public void OnClickGuildButton()
     {
         if (!string.IsNullOrEmpty(guildName))
         {
-            photonChatManager.ShowChannel(guildName);
+            PhotonChatManager.Instance.ShowChannel(guildName);
             ExitButtonShow();
             PopUpClose();
             chatInputField.SetActive(true);
@@ -149,33 +166,36 @@ public class UIManager : MonoBehaviour {
             PopUpShow("길드 이름을 입력하세요.");
             ExitButtonClose();
             chatInputField.SetActive(false);
-            photonChatManager.clearChannel();
+            PhotonChatManager.Instance.clearChannel();
         }
         friendList.SetActive(false);
 
     }
 
-    // 나가기 버튼 눌렀을 때
+    //==========================================================================
+
+    /// <summary> 나가기 버튼 눌렀을 때 </summary>
     public void OnClickExitButton()
     {
-        if(photonChatManager.PrivateChatCheck())
+        if(PhotonChatManager.Instance.PrivateChatCheck())
         {
             // 1:1 채팅방 나가기
             friendList.SetActive(true);
             chatInputField.SetActive(false);
+            ExitButtonClose();
         }
         else
         {
             // 길드 채팅방 나가기        
-            photonChatManager.OnUnsubscribed(guildName.Split(new char[] { ' ', ',' }));
-            photonChatManager.clearChannel();
+            PhotonChatManager.Instance.OnUnsubscribed(guildName.Split(new char[] { ' ', ',' }));
+            PhotonChatManager.Instance.clearChannel();
             guildName = null;
             OnClickGuildButton();
         }
         
     }
 
-    // 친구 추가할 때
+    /// <summary> 친구 추가할 때 </summary>
     public void FriendChatAdd()
     {
         if(string.IsNullOrEmpty(friendInputField.text))
@@ -183,15 +203,15 @@ public class UIManager : MonoBehaviour {
             Debug.Log("친구추가할 아이디를 입력하세요");
             return;
         }
-        photonChatManager.PrivateChatAdd(friendInputField.text);
+        PhotonChatManager.Instance.PrivateChatAdd(friendInputField.text);
         friendInputField.text = "";
     }
 
-    // 친구 대화창 열 때
+    /// <summary>  친구 대화창 열 때 </summary>
     public void friendChatShow(string friendName)
     {
         friendList.SetActive(false);
-        photonChatManager.ShowChannel(friendName);
+        PhotonChatManager.Instance.ShowChannel(friendName);
         chatInputField.SetActive(true);
         ExitButtonShow();
     }
