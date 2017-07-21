@@ -33,10 +33,14 @@ chatClient.SendPrivateMessage(메시지 받을 유저,메시지)
 ## 각 채널에 날라온 메시지들을 받습니다.
 <pre><code>
 // OnGetMessages(채널이름, 보낸사람, 메시지)
-OnGetMessages(string channelName, string[] senders, object[] messages)
+void OnGetMessages(string channelName, string[] senders, object[] messages) 
+{
+}
 </code></pre>
 ## 비밀 채널로 본인에게 온 메시지를 받습니다.
 <pre><code>
-// OnPrivateMessage(보낸사람, 메시지, 비밀채널이름);
-OnPrivateMessage(string sender, object message, string channelName)
+// OnPrivateMessage(보낸사람, 메시지, 비밀채널이름)
+void OnPrivateMessage(string sender, object message, string channelName)
+{
+}
 </code></pre>
